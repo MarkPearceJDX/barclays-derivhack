@@ -19,7 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-abstract class FlowTestBase {
+abstract class BaseFlowTest {
 
     lateinit var mockNetwork: InternalMockNetwork
     lateinit var node1: TestStartedNode
@@ -33,7 +33,7 @@ abstract class FlowTestBase {
 
     @Before
     fun setup() {
-        mockNetwork = InternalMockNetwork(cordappsForAllNodes = cordappsForPackages("com.derivhack.executionflow", "com.derivhack", "net.corda.cdmsupport"),
+        mockNetwork = InternalMockNetwork(cordappsForAllNodes = cordappsForPackages("com.derivhack", "net.corda.cdmsupport"),
                 threadPerNode = true, initialNetworkParameters = testNetworkParameters(minimumPlatformVersion = 4))
         node1 = mockNetwork.createPartyNode(CordaX500Name(organisation = "Client1", locality = "New York", country = "US"))
         node2 = mockNetwork.createPartyNode(CordaX500Name(organisation = "Broker1", locality = "New York", country = "US"))

@@ -57,7 +57,7 @@ class ExecutionFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTra
     override fun call(): SignedTransaction {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
             override fun checkTransaction(stx: SignedTransaction) {
-
+                stx.toLedgerTransaction(serviceHub, false).verify()
             }
         }
 
