@@ -2,6 +2,7 @@ package net.corda.cdmsupport
 
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
+import net.corda.core.contracts.requireThat
 import net.corda.core.transactions.LedgerTransaction
 
 class CDMEvent : Contract {
@@ -17,7 +18,23 @@ class CDMEvent : Contract {
     }
 
     override fun verify(tx: LedgerTransaction) {
-        // TODO: Write the verify logic.
+        val command = tx.findCommand<Commands> { true }
+
+        when (command.value) {
+            is Commands.Execution -> {
+                verifyExecution(tx)
+            }
+            is Commands.Affirmation -> {
+
+            }
+        }
+    }
+
+    private fun verifyExecution(tx: LedgerTransaction) {
+        requireThat {
+            "Execution is and issuance command, thus it cannot have input states." using (tx.inputStates.count() == 0)
+
+        }
     }
 
 
