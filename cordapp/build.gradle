@@ -67,6 +67,7 @@ dependencies {
     // CorDapp dependencies
     // Specify your CorDapp's dependencies below, including dependent CorDapps.
     cordapp project(":cdm-support-contracts-states")
+    cordapp project(":cdm-support-util")
     cordapp project(":cdm-support")
 }
 

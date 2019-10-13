@@ -37,7 +37,7 @@ class AllocationFlow(val allocationJson: String) : FlowLogic<SignedTransaction>(
 
         val fullySignedTx = subFlow(CollectSignaturesFlow(signedTxByMe, counterpartySessions, CollectSignaturesFlow.tracker()))
         val finalityTx = subFlow(FinalityFlow(fullySignedTx, counterpartySessions))
-        subFlow(ObserveryFlow(regulator, finalityTx))
+        subFlow(ObserverFlow(regulator, finalityTx))
 
         return finalityTx
     }

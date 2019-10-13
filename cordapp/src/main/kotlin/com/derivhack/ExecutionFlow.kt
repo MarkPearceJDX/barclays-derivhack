@@ -3,16 +3,10 @@ package com.derivhack
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
 import net.corda.cdmsupport.transactionbuilding.CdmTransactionBuilder
+import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.cdmsupport.vaultquerying.DefaultCdmVaultQuery
-import net.corda.core.contracts.Amount
-import net.corda.core.contracts.OwnableState
-import net.corda.core.contracts.StateAndRef
 import net.corda.core.flows.*
-import net.corda.core.identity.PartyAndCertificate
 import net.corda.core.transactions.SignedTransaction
-import net.corda.core.utilities.ProgressTracker
-import net.corda.finance.flows.TwoPartyTradeFlow
-import java.util.*
 
 @InitiatingFlow
 @StartableByRPC
@@ -32,6 +26,8 @@ class ExecutionFlow(val executionJson: String) : FlowLogic<SignedTransaction>() 
     @Suspendable
     override fun call(): SignedTransaction {
         val newTradeEvent = parseEventFromJson(executionJson)
+        CdmValidators().validateEvent(newTradeEvent)
+
         val notary = serviceHub.networkMapCache.notaryIdentities.first()
         val cdmTransactionBuilder = CdmTransactionBuilder(notary, newTradeEvent, DefaultCdmVaultQuery(serviceHub))
 
@@ -44,7 +40,7 @@ class ExecutionFlow(val executionJson: String) : FlowLogic<SignedTransaction>() 
 
         val fullySignedTx = subFlow(CollectSignaturesFlow(signedTxByMe, counterpartySessions, CollectSignaturesFlow.tracker()))
         val finalityTx = subFlow(FinalityFlow(fullySignedTx, counterpartySessions))
-        subFlow(ObserveryFlow(regulator, finalityTx))
+        subFlow(ObserverFlow(regulator, finalityTx))
 
         return finalityTx
     }
@@ -62,6 +58,7 @@ class ExecutionFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTra
         }
 
         val signedId = subFlow(signedTransactionFlow)
+        signedId.verify(serviceHub, true)
 
         return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId =  signedId.id))
     }

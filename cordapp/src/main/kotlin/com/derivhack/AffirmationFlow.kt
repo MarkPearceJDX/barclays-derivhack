@@ -6,7 +6,6 @@ import net.corda.cdmsupport.eventparsing.serializeCdmObjectIntoJson
 import net.corda.cdmsupport.functions.affirmationBuilderFromExecution
 import net.corda.cdmsupport.states.AffirmationState
 import net.corda.cdmsupport.states.ExecutionState
-import net.corda.core.contracts.Requirements.using
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
 import net.corda.core.node.services.queryBy
@@ -60,7 +59,7 @@ class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>()
 
         val finalityTx = subFlow(FinalityFlow(fullySignedTx, session))
 
-        //subFlow(TestObservableFlow(regulator, finalityTx))
+        subFlow(ObserverFlow(regulator, finalityTx))
 
         return finalityTx
     }
