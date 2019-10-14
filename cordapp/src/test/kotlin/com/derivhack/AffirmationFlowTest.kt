@@ -2,6 +2,7 @@ package com.derivhack
 
 import net.corda.cdmsupport.CDMEvent
 import net.corda.cdmsupport.eventparsing.readEventFromJson
+import net.corda.cdmsupport.eventparsing.readTextFromFile
 import net.corda.cdmsupport.states.AffirmationState
 import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.validators.CdmValidators
@@ -18,15 +19,14 @@ class AffirmationFlowTest : BaseFlowTest() {
     @Test
     fun affirm() {
         // --------- new trade
-        val tradeDataFolder = "C:/Users/maros.struk/source/repos/TradeData/"
-        val executionJson = File("${tradeDataFolder}UC1_Block_Trade_BT1.json").readText()
+        val executionJson = readTextFromFile("/${samplesDir}/UC1_block_execute_BT1.json")
         val executionFlow = ExecutionFlow(executionJson)
 
         val future1 = node2.services.startFlow(executionFlow).resultFuture
         checkTxAssertions(future1.getOrThrow().toLedgerTransaction(node2.services))
 
         //----------------allocation
-        val allocationJson = File("${tradeDataFolder}UC2_Allocation_Trade_AT1.json").readText()
+        val allocationJson = readTextFromFile("/${samplesDir}/UC2_allocation_execution_AT1.json")
         val future2 = node2.services.startFlow(AllocationFlow(allocationJson)).resultFuture
         checkTheBasicFabricOfTheTransaction(future2.getOrThrow().toLedgerTransaction(node2.services), 1, 3, 0, 3)
 

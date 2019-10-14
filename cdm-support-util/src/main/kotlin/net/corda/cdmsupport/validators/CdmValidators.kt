@@ -11,12 +11,13 @@ import org.isda.cdm.meta.*
 class CdmValidators() {
 
     fun validateEvent(event: Event): List<ValidationResult<in Event>> {
-        val eventMeta = EventMeta()
+        /*val eventMeta = EventMeta()
         val validators = ArrayList<Validator<in Event>>()
         validators.addAll(eventMeta.choiceRuleValidators())
         validators.addAll(eventMeta.dataRules())
         validators.add(eventMeta.validator())
-
+*/
+        val validators = getCdmObjectValidators<Event>(EventMeta())
         return validators.map { it.validate(RosettaPath.valueOf("Event"), event) }.toList()
     }
 

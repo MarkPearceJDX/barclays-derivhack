@@ -1,10 +1,13 @@
 package net.corda.cdmsupport
 
+import net.corda.cdmsupport.states.AffirmationState
 import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireThat
+import net.corda.core.flows.FlowLogic
+import net.corda.core.node.services.Vault
 import net.corda.core.transactions.LedgerTransaction
 
 class CDMEvent : Contract {
@@ -25,8 +28,7 @@ class CDMEvent : Contract {
             val command = tx.findCommand<Commands> { true }
             when (command.value) {
                 is Commands.Execution -> verifyExecution(tx)
-                is Commands.Affirmation -> {
-                }
+                is Commands.Affirmation -> verifyAffirmation(tx)
             }
         }
     }
@@ -48,6 +50,15 @@ class CDMEvent : Contract {
         }
     }
 
+    private fun verifyAffirmation(tx: LedgerTransaction) {
+        requireThat {
+            "Affirmation requires one execution input state." using (tx.inputStates.firstOrNull() { it is ExecutionState } != null)
+            "Affirmation requires two output states, where one is execution state." using (tx.outputStates.firstOrNull() { it is ExecutionState } != null)
+            "Affirmation requires two output states, where one is affirmation state." using (tx.outputStates.firstOrNull() { it is AffirmationState } != null)
+            "Affirmation state must reference the input execution state." using (verifyAffirmationStatesLineage(tx))
+        }
+    }
+
     private fun verifyAllocationQuantity(tx: LedgerTransaction): Boolean {
         val inputExecution = (tx.inputStates[0] as ExecutionState).execution()
         val outputExecutions = tx.outputStates.map { (it as ExecutionState).execution() }
@@ -63,15 +74,16 @@ class CDMEvent : Contract {
         return inputExecution.identifier == closedExecution.identifier
     }
 
+    private fun verifyAffirmationStatesLineage(tx: LedgerTransaction): Boolean {
+        val inputExecution = (tx.inputStates.first() as ExecutionState).execution()
+        val outputExecution = (tx.outputStates.first() { it is ExecutionState } as ExecutionState).execution()
+        val outputAffirmation = (tx.outputStates.first() { it is AffirmationState } as AffirmationState).affirmation()
+
+        return inputExecution.meta.globalKey == outputExecution.meta.globalKey &&
+                inputExecution.meta.globalKey == outputAffirmation.lineage.executionReference.first().globalReference
+    }
+
+    /*private fun verifyAffirmationUniqueness(tx: LedgerTransaction): Boolean {
+        DefaultCdmVaultQuery()
+    }*/
 }
-
-
-
-
-
-
-
-
-
-
-

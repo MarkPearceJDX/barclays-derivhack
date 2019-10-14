@@ -19,8 +19,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-abstract class BaseFlowTest {
-
+abstract class BaseFlowTest(val samplesDir: String = "jsons") {
     lateinit var mockNetwork: InternalMockNetwork
     lateinit var node1: TestStartedNode
     lateinit var node2: TestStartedNode

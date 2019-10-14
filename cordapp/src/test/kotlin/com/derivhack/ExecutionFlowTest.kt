@@ -1,5 +1,6 @@
 package com.derivhack
 
+import net.corda.cdmsupport.eventparsing.readTextFromFile
 import net.corda.core.utilities.getOrThrow
 import net.corda.testing.node.internal.startFlow
 import org.junit.Test
@@ -9,7 +10,7 @@ class ExecutionFlowTest : BaseFlowTest() {
 
     @Test
     fun execution() {
-        val executionJson = File("C:/Users/maros.struk/source/repos/TradeData/UC1_Block_Trade_BT1.json").readText()
+        val executionJson = readTextFromFile("/${samplesDir}/UC1_block_execute_BT1.json")
         val executionFlow = ExecutionFlow(executionJson)
 
         val future = node2.services.startFlow(executionFlow).resultFuture
