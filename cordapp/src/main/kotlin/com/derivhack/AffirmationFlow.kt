@@ -71,6 +71,7 @@ class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>()
         override fun call(): SignedTransaction {
             val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
                 override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                    stx.toLedgerTransaction(serviceHub, false).verify()
                 }
             }
 

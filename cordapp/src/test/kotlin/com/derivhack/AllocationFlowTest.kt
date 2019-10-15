@@ -12,14 +12,31 @@ import kotlin.test.assertNotNull
 class AllocationFlowTest : BaseFlowTest() {
 
     @Test
-    fun allocation() {
+    fun allocateOne() {
+        execute("/${samplesDir}/UC1_block_execute_BT1.json")
+        allocate("/${samplesDir}/UC2_allocation_execution_AT1.json")
+    }
+    
+    @Test
+    fun allocateMany() {
+        File("/${samplesDir}/UC1/").walk().forEach {
+            execute(it.path)
+        }
+        File("/${samplesDir}/UC2/").walk().forEach {
+            allocate(it.path)
+        }
+    }
+
+    private fun execute(jsonPath: String) {
         // --------- new trade
-        val executionJson = readTextFromFile("/${samplesDir}/UC1_block_execute_BT1.json")
+        val executionJson = readTextFromFile(jsonPath)
         val executionFlow = ExecutionFlow(executionJson)
 
         val future1 = node2.services.startFlow(executionFlow).resultFuture
         checkTxAssertions(future1.getOrThrow().toLedgerTransaction(node2.services))
+    }
 
+    private fun allocate(jsonPath: String) {
         //----------------allocation
         val allocationJson = readTextFromFile("/${samplesDir}/UC2_allocation_execution_AT1.json")
         val future2 = node2.services.startFlow(AllocationFlow(allocationJson)).resultFuture

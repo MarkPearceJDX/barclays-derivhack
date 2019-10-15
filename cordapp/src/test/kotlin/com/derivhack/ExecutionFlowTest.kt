@@ -9,8 +9,19 @@ import java.io.File
 class ExecutionFlowTest : BaseFlowTest() {
 
     @Test
-    fun execution() {
-        val executionJson = readTextFromFile("/${samplesDir}/UC1_block_execute_BT1.json")
+    fun executeOne() {
+        execute("/${samplesDir}/UC1_block_execute_BT1.json")
+    }
+
+    @Test
+    fun executeMany() {
+        File("/${samplesDir}/UC1/").walk().forEach {
+            execute(it.path)
+        }
+    }
+
+    private fun execute(jsonPath: String) {
+        val executionJson = readTextFromFile(jsonPath)
         val executionFlow = ExecutionFlow(executionJson)
 
         val future = node2.services.startFlow(executionFlow).resultFuture

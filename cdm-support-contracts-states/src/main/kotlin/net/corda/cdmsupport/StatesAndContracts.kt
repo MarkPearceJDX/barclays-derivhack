@@ -82,8 +82,4 @@ class CDMEvent : Contract {
         return inputExecution.meta.globalKey == outputExecution.meta.globalKey &&
                 inputExecution.meta.globalKey == outputAffirmation.lineage.executionReference.first().globalReference
     }
-
-    /*private fun verifyAffirmationUniqueness(tx: LedgerTransaction): Boolean {
-        DefaultCdmVaultQuery()
-    }*/
 }
