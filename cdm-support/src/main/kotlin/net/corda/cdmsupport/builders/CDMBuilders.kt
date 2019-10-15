@@ -81,10 +81,6 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
                 .build()
     }
 
-    fun buildFieldWithMetaString(value: String): FieldWithMetaString {
-        return FieldWithMetaString.FieldWithMetaStringBuilder().setValue(value).build()
-    }
-
     fun buildFieldWithMetaDate(date: Date): FieldWithMetaDate {
         return FieldWithMetaDate.FieldWithMetaDateBuilder()
                 .setValue(date)
@@ -140,15 +136,35 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
         return partyRoles.filter { references.contains(it.partyReference.globalReference) }.toMutableList()
     }
 
-    fun buildLineage(eventKey: String, executionKey: String): Lineage {
-        return Lineage.LineageBuilder()
-                .addEventReferenceBuilder(ReferenceWithMetaEvent
-                        .ReferenceWithMetaEventBuilder()
-                        .setGlobalReference(eventKey))
-                .addExecutionReferenceBuilder(ReferenceWithMetaExecution
-                        .ReferenceWithMetaExecutionBuilder()
-                        .setGlobalReference(executionKey)
-                ).build()
+    companion object {
+        fun buildLineage(eventKey: String, executionKey: String): Lineage {
+            return Lineage.LineageBuilder()
+                    .addEventReferenceBuilder(ReferenceWithMetaEvent
+                            .ReferenceWithMetaEventBuilder()
+                            .setGlobalReference(eventKey))
+                    .addExecutionReferenceBuilder(ReferenceWithMetaExecution
+                            .ReferenceWithMetaExecutionBuilder()
+                            .setGlobalReference(executionKey)
+                    ).build()
+        }
+
+        fun buildConfirmation(tradeIndex: String, parties: MutableList<Party>, partyRoles: MutableList<PartyRole>, lineage: Lineage): Confirmation.ConfirmationBuilder {
+            return Confirmation.ConfirmationBuilder()
+                    .addIdentifierBuilder(Identifier
+                            .IdentifierBuilder()
+                            .addAssignedIdentifierBuilder(AssignedIdentifier
+                                    .AssignedIdentifierBuilder()
+                                    .setIdentifier(buildFieldWithMetaString(tradeIndex))
+                            ))
+                    .addParty(parties)
+                    .addPartyRole(partyRoles)
+                    .setLineage(lineage)
+                    .setStatus(ConfirmationStatusEnum.CONFIRMED)
+        }
+
+        fun buildFieldWithMetaString(value: String): FieldWithMetaString {
+            return FieldWithMetaString.FieldWithMetaStringBuilder().setValue(value).build()
+        }
     }
 
     fun buildReferenceWithMetaExecution(execution: Execution): ReferenceWithMetaExecution {
@@ -176,20 +192,6 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
                 ))
 
         return builder
-    }
-
-    fun buildConfirmation(tradeIndex: String, parties: MutableList<Party>, partyRoles: MutableList<PartyRole>, lineage: Lineage): Confirmation.ConfirmationBuilder {
-        return Confirmation.ConfirmationBuilder()
-                .addIdentifierBuilder(Identifier
-                        .IdentifierBuilder()
-                        .addAssignedIdentifierBuilder(AssignedIdentifier
-                                .AssignedIdentifierBuilder()
-                                .setIdentifier(buildFieldWithMetaString(tradeIndex))
-                        ))
-                .addParty(parties)
-                .addPartyRole(partyRoles)
-                .setLineage(lineage)
-                .setStatus(ConfirmationStatusEnum.CONFIRMED)
     }
 
     fun buildCashTransfer(amount: Money, payerReceiver: PayerReceiver, identifier: FieldWithMetaString): CashTransferComponent {

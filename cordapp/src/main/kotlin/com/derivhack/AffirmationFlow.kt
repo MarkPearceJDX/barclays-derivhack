@@ -17,7 +17,6 @@ import org.isda.cdm.AffirmationStatusEnum
 @StartableByRPC
 class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>() {
 
-    //TODO
     /**
      *  You're expected to generate relevant CDM objects and link them to associated allocated
      *  trades created with UC2 as well as validate them against CDM data rules by
@@ -66,23 +65,22 @@ class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>()
 
         return finalityTx
     }
+}
 
-    @InitiatedBy(AffirmationFlow::class)
-    class AffirmationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTransaction>() {
+@InitiatedBy(AffirmationFlow::class)
+class AffirmationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTransaction>() {
 
-        @Suspendable
-        override fun call(): SignedTransaction {
-            val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-                override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                    stx.toLedgerTransaction(serviceHub, false).verify()
-                }
+    @Suspendable
+    override fun call(): SignedTransaction {
+        val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
+            override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                stx.toLedgerTransaction(serviceHub, false).verify()
             }
-
-            val signedId = subFlow(signedTransactionFlow)
-
-            return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
         }
-    }
 
+        val signedId = subFlow(signedTransactionFlow)
+
+        return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
+    }
 }
 

@@ -1,6 +1,7 @@
 package net.corda.cdmsupport
 
 import net.corda.cdmsupport.states.AffirmationState
+import net.corda.cdmsupport.states.ConfirmationState
 import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.core.contracts.CommandData
@@ -35,6 +36,7 @@ class CDMEvent : Contract {
             when (command.value) {
                 is Commands.Execution -> verifyExecution(tx)
                 is Commands.Affirmation -> verifyAffirmation(tx)
+                is Commands.Confirmation -> verifyConfirmation(tx)
             }
         }
     }
@@ -61,7 +63,16 @@ class CDMEvent : Contract {
             "Affirmation requires one execution input state." using (tx.inputStates.firstOrNull() { it is ExecutionState } != null)
             "Affirmation requires two output states, where one is execution state." using (tx.outputStates.firstOrNull() { it is ExecutionState } != null)
             "Affirmation requires two output states, where one is affirmation state." using (tx.outputStates.firstOrNull() { it is AffirmationState } != null)
-            "Affirmation state must reference the input execution state." using (verifyAffirmationStatesLineage(tx))
+            "Output affirmation state must reference the input execution state." using (verifyAffirmationStatesLineage(tx))
+        }
+    }
+
+    private fun verifyConfirmation(tx: LedgerTransaction) {
+        requireThat {
+            "Confirmation requires one execution input state." using (tx.inputStates.firstOrNull() { it is ExecutionState } != null)
+            "Confirmation requires two output states, where one is execution state." using (tx.outputStates.firstOrNull() { it is ExecutionState } != null)
+            "Confirmation requires two output states, where one is confirmation state." using (tx.outputStates.firstOrNull() { it is ConfirmationState } != null)
+            "Output confirmation state must reference the input execution state." using (verifyAffirmationStatesLineage(tx))
         }
     }
 
@@ -87,5 +98,14 @@ class CDMEvent : Contract {
 
         return inputExecution.meta.globalKey == outputExecution.meta.globalKey &&
                 inputExecution.meta.globalKey == outputAffirmation.lineage.executionReference.first().globalReference
+    }
+
+    private fun verifyConfirmationStatesLineage(tx: LedgerTransaction): Boolean {
+        val inputExecution = (tx.inputStates.first() as ExecutionState).execution()
+        val outputExecution = (tx.outputStates.first() { it is ExecutionState } as ExecutionState).execution()
+        val outputConfirmation = (tx.outputStates.first() { it is ConfirmationState } as ConfirmationState).confirmation()
+
+        return inputExecution.meta.globalKey == outputExecution.meta.globalKey &&
+                inputExecution.meta.globalKey == outputConfirmation.lineage.executionReference.first().globalReference
     }
 }
