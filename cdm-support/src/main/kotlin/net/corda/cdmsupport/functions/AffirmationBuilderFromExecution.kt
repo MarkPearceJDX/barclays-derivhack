@@ -1,5 +1,14 @@
 package net.corda.cdmsupport.functions
 
+import CDMBuilders
+import org.isda.cdm.Affirmation
+
+/*fun affirmationBuilderFromExecution() : Affirmation {
+
+    return CDMBuilders().affirmation
+
+}*/
+
 import net.corda.cdmsupport.states.ExecutionState
 import net.corda.core.contracts.UniqueIdentifier
 import org.isda.cdm.*
