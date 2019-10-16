@@ -1,13 +1,20 @@
 package com.derivhack
 
 import co.paralleluniverse.fibers.Suspendable
+import com.derivhack.subflows.SendToXceptorFlow
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
+import net.corda.cdmsupport.external.OutputClient
 import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.transactionbuilding.CdmTransactionBuilder
 import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.cdmsupport.vaultquerying.DefaultCdmVaultQuery
 import net.corda.core.flows.*
 import net.corda.core.transactions.SignedTransaction
+import org.joda.time.DateTime
+import java.io.File
+import java.lang.Exception
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @InitiatingFlow
 @StartableByRPC
@@ -26,27 +33,37 @@ class ExecutionFlow(val executionJson: String) : FlowLogic<SignedTransaction>() 
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val newTradeEvent = parseEventFromJson(executionJson)
-        CdmValidators().validateEvent(newTradeEvent)
+        var uniqueRef: String = ""
 
-        val notary = serviceHub.networkMapCache.notaryIdentities.first()
-        val cdmTransactionBuilder = CdmTransactionBuilder(notary, newTradeEvent, DefaultCdmVaultQuery(serviceHub))
+        try {
+            val newTradeEvent = parseEventFromJson(executionJson)
+            CdmValidators().validateEvent(newTradeEvent)
+            uniqueRef = newTradeEvent.meta.globalKey
 
-        cdmTransactionBuilder.verify(serviceHub)
+            val notary = serviceHub.networkMapCache.notaryIdentities.first()
+            val cdmTransactionBuilder = CdmTransactionBuilder(notary, newTradeEvent, DefaultCdmVaultQuery(serviceHub))
 
-        val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
-        val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
-        if (!CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
-            throw FlowException("Execution state is invalid.")
+            cdmTransactionBuilder.verify(serviceHub)
 
-        val counterpartySessions = cdmTransactionBuilder.getPartiesToSign().minus(ourIdentity).map { initiateFlow(it) }
-        val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
+            val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
+            val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
+            if (!CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
+                throw FlowException("Execution state is invalid.")
 
-        val fullySignedTx = subFlow(CollectSignaturesFlow(signedTxByMe, counterpartySessions, CollectSignaturesFlow.tracker()))
-        val finalityTx = subFlow(FinalityFlow(fullySignedTx, counterpartySessions))
-        subFlow(ObserverFlow(regulator, finalityTx))
+            val counterpartySessions = cdmTransactionBuilder.getPartiesToSign().minus(ourIdentity).map { initiateFlow(it) }
+            val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
 
-        return finalityTx
+            val fullySignedTx = subFlow(CollectSignaturesFlow(signedTxByMe, counterpartySessions, CollectSignaturesFlow.tracker()))
+            val finalityTx = subFlow(FinalityFlow(fullySignedTx, counterpartySessions))
+
+            subFlow(ObserverFlow(regulator, finalityTx))
+            subFlow(SendToXceptorFlow(ourIdentity, finalityTx))
+
+            return finalityTx
+        } catch (e: FlowException) {
+            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            throw e
+        }
     }
 }
 

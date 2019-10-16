@@ -1,13 +1,18 @@
 package com.derivhack
 
 import co.paralleluniverse.fibers.Suspendable
+import com.derivhack.subflows.SendToXceptorFlow
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
+import net.corda.cdmsupport.external.OutputClient
 import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.transactionbuilding.CdmTransactionBuilder
 import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.cdmsupport.vaultquerying.DefaultCdmVaultQuery
 import net.corda.core.flows.*
 import net.corda.core.transactions.SignedTransaction
+import java.io.File
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @InitiatingFlow
 @StartableByRPC
@@ -30,25 +35,35 @@ class AllocationFlow(val allocationJson: String) : FlowLogic<SignedTransaction>(
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val newTradeEvent = parseEventFromJson(allocationJson)
-        val notary = serviceHub.networkMapCache.notaryIdentities.first()
-        val cdmTransactionBuilder = CdmTransactionBuilder(notary, newTradeEvent, DefaultCdmVaultQuery(serviceHub))
+        var uniqueRef: String = ""
 
-        cdmTransactionBuilder.verify(serviceHub)
+        try {
+            val newTradeEvent = parseEventFromJson(allocationJson)
+            val notary = serviceHub.networkMapCache.notaryIdentities.first()
+            val cdmTransactionBuilder = CdmTransactionBuilder(notary, newTradeEvent, DefaultCdmVaultQuery(serviceHub))
+            uniqueRef = newTradeEvent.meta.globalKey
 
-        val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
-        val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
-        if (!tx.outputStates.map { it as ExecutionState }.all { CdmValidators().validateExecution((it).execution()).all { it.isSuccess } })
-            throw FlowException("One or more allocated execution states are invalid.")
+            cdmTransactionBuilder.verify(serviceHub)
 
-        val counterpartySessions = cdmTransactionBuilder.getPartiesToSign().minus(ourIdentity).map { initiateFlow(it) }
-        val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
+            val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
+            val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
+            if (!tx.outputStates.map { it as ExecutionState }.all { CdmValidators().validateExecution((it).execution()).all { it.isSuccess } })
+                throw FlowException("One or more allocated execution states are invalid.")
 
-        val fullySignedTx = subFlow(CollectSignaturesFlow(signedTxByMe, counterpartySessions, CollectSignaturesFlow.tracker()))
-        val finalityTx = subFlow(FinalityFlow(fullySignedTx, counterpartySessions))
-        subFlow(ObserverFlow(regulator, finalityTx))
+            val counterpartySessions = cdmTransactionBuilder.getPartiesToSign().minus(ourIdentity).map { initiateFlow(it) }
+            val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
 
-        return finalityTx
+            val fullySignedTx = subFlow(CollectSignaturesFlow(signedTxByMe, counterpartySessions, CollectSignaturesFlow.tracker()))
+            val finalityTx = subFlow(FinalityFlow(fullySignedTx, counterpartySessions))
+
+            subFlow(ObserverFlow(regulator, finalityTx))
+            subFlow(SendToXceptorFlow(ourIdentity, finalityTx))
+
+            return finalityTx
+        } catch (e: FlowException) {
+            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            throw e
+        }
     }
 }
 

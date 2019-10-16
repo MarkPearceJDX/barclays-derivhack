@@ -1,8 +1,10 @@
 package com.derivhack
 
 import co.paralleluniverse.fibers.Suspendable
+import com.derivhack.subflows.SendToXceptorFlow
 import net.corda.cdmsupport.CDMEvent
 import net.corda.cdmsupport.eventparsing.serializeCdmObjectIntoJson
+import net.corda.cdmsupport.external.OutputClient
 import net.corda.cdmsupport.functions.affirmationBuilderFromExecution
 import net.corda.cdmsupport.states.AffirmationState
 import net.corda.cdmsupport.states.ExecutionState
@@ -30,40 +32,48 @@ class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>()
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val statesAndRef = serviceHub.vaultService.queryBy<ExecutionState>().states
-        val stateAndRef = statesAndRef.first { it.state.data.execution().meta.globalKey == executionRef }
+        var uniqueRef: String = ""
 
-        val state = stateAndRef.state.data
+        try {
+            val statesAndRef = serviceHub.vaultService.queryBy<ExecutionState>().states
+            val stateAndRef = statesAndRef.first { it.state.data.execution().meta.globalKey == executionRef }
 
-        val notary = serviceHub.networkMapCache.notaryIdentities.first()
-        val participants = state.participants.map { net.corda.core.identity.Party(it.nameOrNull(), it.owningKey) }
+            val state = stateAndRef.state.data
 
-        val builder = TransactionBuilder(notary)
+            val notary = serviceHub.networkMapCache.notaryIdentities.first()
+            val participants = state.participants.map { net.corda.core.identity.Party(it.nameOrNull(), it.owningKey) }
 
-        val affirmation = affirmationBuilderFromExecution(state)
-        val affirmationState = AffirmationState(serializeCdmObjectIntoJson(affirmation), participants)
-        val executionState = state.copy(workflowStatus = AffirmationStatusEnum.AFFIRMED.name)
+            val builder = TransactionBuilder(notary)
 
-        builder.addInputState(stateAndRef)
-        builder.addCommand(CDMEvent.Commands.Affirmation(), participants.map { it.owningKey })
-        builder.addOutputState(affirmationState)
-        builder.addOutputState(executionState)
+            val affirmation = affirmationBuilderFromExecution(state)
+            val affirmationState = AffirmationState(serializeCdmObjectIntoJson(affirmation), participants)
+            val executionState = state.copy(workflowStatus = AffirmationStatusEnum.AFFIRMED.name)
 
-        builder.verify(serviceHub)
+            builder.addInputState(stateAndRef)
+            builder.addCommand(CDMEvent.Commands.Affirmation(), participants.map { it.owningKey })
+            builder.addOutputState(affirmationState)
+            builder.addOutputState(executionState)
 
-        val signedTransaction = serviceHub.signInitialTransaction(builder)
+            builder.verify(serviceHub)
 
-        val session = participants.minus(ourIdentity).map { initiateFlow(it) }
+            val signedTransaction = serviceHub.signInitialTransaction(builder)
 
-        val fullySignedTx = subFlow(CollectSignaturesFlow(signedTransaction, session, CollectSignaturesFlow.tracker()))
+            val session = participants.minus(ourIdentity).map { initiateFlow(it) }
 
-        val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
+            val fullySignedTx = subFlow(CollectSignaturesFlow(signedTransaction, session, CollectSignaturesFlow.tracker()))
 
-        val finalityTx = subFlow(FinalityFlow(fullySignedTx, session))
+            val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
 
-        subFlow(ObserverFlow(regulator, finalityTx))
+            val finalityTx = subFlow(FinalityFlow(fullySignedTx, session))
 
-        return finalityTx
+            subFlow(ObserverFlow(regulator, finalityTx))
+            subFlow(SendToXceptorFlow(ourIdentity, finalityTx))
+
+            return finalityTx
+        } catch (e: FlowException) {
+            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            throw e
+        }
     }
 }
 
