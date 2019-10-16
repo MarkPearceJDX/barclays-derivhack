@@ -2,6 +2,7 @@ package com.derivhack
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
+import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.transactionbuilding.CdmTransactionBuilder
 import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.cdmsupport.vaultquerying.DefaultCdmVaultQuery
@@ -34,6 +35,9 @@ class ExecutionFlow(val executionJson: String) : FlowLogic<SignedTransaction>() 
         cdmTransactionBuilder.verify(serviceHub)
 
         val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
+        val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
+        if (!CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
+            throw FlowException("Execution state is invalid.")
 
         val counterpartySessions = cdmTransactionBuilder.getPartiesToSign().minus(ourIdentity).map { initiateFlow(it) }
         val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
@@ -53,7 +57,10 @@ class ExecutionFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTra
     override fun call(): SignedTransaction {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
             override fun checkTransaction(stx: SignedTransaction) {
-                stx.toLedgerTransaction(serviceHub, false).verify()
+                val tx = stx.toLedgerTransaction(serviceHub, false)
+                tx.verify()
+                if (!CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
+                    throw FlowException("Execution state is invalid.")
             }
         }
 

@@ -3,7 +3,6 @@ package net.corda.cdmsupport
 import net.corda.cdmsupport.states.AffirmationState
 import net.corda.cdmsupport.states.ConfirmationState
 import net.corda.cdmsupport.states.ExecutionState
-import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.Contract
 import net.corda.core.contracts.requireThat
@@ -44,7 +43,6 @@ class CDMEvent : Contract {
     private fun verifyExecution(tx: LedgerTransaction) {
         requireThat {
             "Execution is and issuance command, thus it cannot have input states." using (tx.inputStates.count() == 0)
-            "Execution is invalid" using (CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
         }
     }
 
@@ -54,7 +52,6 @@ class CDMEvent : Contract {
             "Allocation command must result in exactly 3 output states (subject to change in the future)." using (tx.outputStates.count() == 3)
             "Closed state identifier does not match the input state identifier." using (verifyAllocationClosedState(tx))
             "Trade quantities of the newly allocated states does not match the original execution quantity." using (verifyAllocationQuantity(tx))
-            "One or more allocation states are invalid" using (tx.outputStates.all { CdmValidators().validateExecution((it as ExecutionState).execution()).all { it.isSuccess } })
         }
     }
 

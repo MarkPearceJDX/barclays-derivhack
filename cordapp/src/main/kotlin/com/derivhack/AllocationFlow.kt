@@ -2,7 +2,9 @@ package com.derivhack
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
+import net.corda.cdmsupport.states.ExecutionState
 import net.corda.cdmsupport.transactionbuilding.CdmTransactionBuilder
+import net.corda.cdmsupport.validators.CdmValidators
 import net.corda.cdmsupport.vaultquerying.DefaultCdmVaultQuery
 import net.corda.core.flows.*
 import net.corda.core.transactions.SignedTransaction
@@ -35,6 +37,9 @@ class AllocationFlow(val allocationJson: String) : FlowLogic<SignedTransaction>(
         cdmTransactionBuilder.verify(serviceHub)
 
         val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
+        val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
+        if (!tx.outputStates.map { it as ExecutionState }.all { CdmValidators().validateExecution((it).execution()).all { it.isSuccess } })
+            throw FlowException("One or more allocated execution states are invalid.")
 
         val counterpartySessions = cdmTransactionBuilder.getPartiesToSign().minus(ourIdentity).map { initiateFlow(it) }
         val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
@@ -54,7 +59,10 @@ class AllocationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTr
     override fun call(): SignedTransaction {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
             override fun checkTransaction(stx: SignedTransaction) {
-                stx.toLedgerTransaction(serviceHub, false).verify()
+                val tx = stx.toLedgerTransaction(serviceHub, false)
+                tx.verify()
+                if (!tx.outputStates.map { it as ExecutionState }.all { CdmValidators().validateExecution((it).execution()).all { it.isSuccess } })
+                    throw FlowException("One or more allocated execution states are invalid.")
             }
         }
 
