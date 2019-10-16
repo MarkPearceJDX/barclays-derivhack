@@ -6,13 +6,10 @@ import com.derivhack.webserver.models.binding.PortfolioBindingModel
 import com.derivhack.webserver.models.view.*
 import net.corda.cdmsupport.states.*
 import net.corda.core.messaging.FlowHandle
-import net.corda.core.messaging.startTrackedFlow
 import net.corda.core.messaging.vaultQueryBy
 import net.corda.core.transactions.SignedTransaction
 import org.slf4j.LoggerFactory
 import org.springframework.web.bind.annotation.*
-import org.springframework.web.client.RestTemplate
-import org.springframework.web.client.postForObject
 
 /**
  * Define your API endpoints here.
@@ -31,11 +28,6 @@ class Controller(rpc: NodeRPCConnection) {
     private fun execution(@RequestBody executionJson: String): String {
 
         val tx = proxy.startFlowDynamic(ExecutionFlow::class.java, executionJson)
-        /*val tx1 = proxy.startTrackedFlowDynamic(ExecutionFlow::class.java, executionJson)
-        tx1.progress.doOnCompleted {
-            val restTemplate = RestTemplate()
-            restTemplate.postForObject<String>("", String.javaClass) ?: ""
-        }*/
 
         return "Transaction with id: ${tx.id} created"
     }
@@ -53,36 +45,6 @@ class Controller(rpc: NodeRPCConnection) {
     private fun affirmation(@RequestParam executionRef: String): String {
 
         val tx = proxy.startFlowDynamic(AffirmationFlow::class.java, executionRef)
-
-        return "Transaction with id: ${tx.id} created"
-    }
-
-    @PostMapping(value = ["/confirmation"])
-    private fun confirmation(@RequestParam executionRef: String): String {
-
-        lateinit var tx : FlowHandle<SignedTransaction>
-
-        if (checkExecutionIsAffirmed(executionRef, proxy)) {
-            tx = proxy.startFlowDynamic(ConfirmationFlow::class.java, executionRef)
-        }
-
-        return "Transaction with id: ${tx.id} created"
-    }
-
-
-    @PostMapping(value = ["/portfolio"])
-    private fun portfolio(@RequestBody portfolio: PortfolioBindingModel): String {
-
-        val tx = proxy.startFlowDynamic(PortfolioFlow::class.java, portfolio.transferRefs, portfolio.executionRefs, portfolio.pathToInstructions)
-
-        return "Transaction with id: ${tx.id} created"
-    }
-
-
-    @PostMapping(value = ["/transfer"])
-    private fun transfer(@RequestBody transferJson: String): String {
-
-        val tx = proxy.startFlowDynamic(TransferFlow::class.java, transferJson)
 
         return "Transaction with id: ${tx.id} created"
     }
