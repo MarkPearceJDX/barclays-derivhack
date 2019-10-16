@@ -72,17 +72,22 @@ class AllocationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTr
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-            override fun checkTransaction(stx: SignedTransaction) {
-                val tx = stx.toLedgerTransaction(serviceHub, false)
-                tx.verify()
-                if (!tx.outputStates.map { it as ExecutionState }.all { CdmValidators().validateExecution((it).execution()).all { it.isSuccess } })
-                    throw FlowException("One or more allocated execution states are invalid.")
+        try {
+            val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
+                override fun checkTransaction(stx: SignedTransaction) {
+                    val tx = stx.toLedgerTransaction(serviceHub, false)
+                    tx.verify()
+                    if (!tx.outputStates.map { it as ExecutionState }.all { CdmValidators().validateExecution((it).execution()).all { it.isSuccess } })
+                        throw FlowException("One or more allocated execution states are invalid.")
+                }
             }
+
+            val signedId = subFlow(signedTransactionFlow)
+
+            return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
+        } catch (e: FlowException) {
+            OutputClient(ourIdentity).sendExceptionToXceptor("", e.message ?: "")
+            throw e
         }
-
-        val signedId = subFlow(signedTransactionFlow)
-
-        return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId =  signedId.id))
     }
 }

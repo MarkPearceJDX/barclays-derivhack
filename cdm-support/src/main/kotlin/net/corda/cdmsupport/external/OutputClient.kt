@@ -34,19 +34,21 @@ class OutputClient(val identity: Party) {
         connection.setRequestProperty("Content-Type", "application/json")
 
         try {
+            connection.connect()
             val outputStream: DataOutputStream = DataOutputStream(connection.outputStream)
             outputStream.write(postData)
             outputStream.flush()
+            connection.responseCode
         } catch (exception: Exception) {
         }
     }
 
     private fun getURL(): String {
         when (identity.name.organisation) {
-            "Client1" -> return "https://xcderivhack-client1.azurewebsites.net/service/CordaAck"
-            "Broker1" -> return "https://xcderivhack-broker.azurewebsites.net/service/CordaAck"
-            "Broker2" -> return "https://xcderivhack-broker2.azurewebsites.net/service/CordaAck"
-            "Observery" -> return "https://xcderivhack-observer.azurewebsites.net/service/CordaAck"
+            "Client1" -> return "http://xcderivhack-client1.azurewebsites.net/service/CordaAck"
+            "Broker1" -> return "http://xcderivhack-broker.azurewebsites.net/service/CordaAck"
+            "Broker2" -> return "http://xcderivhack-broker2.azurewebsites.net/service/CordaAck"
+            "Observery" -> return "http://xcderivhack-observer.azurewebsites.net/service/CordaAck"
             else -> return "http://localhost/service/CordaAck"
         }
     }

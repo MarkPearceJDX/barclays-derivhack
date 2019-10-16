@@ -82,15 +82,20 @@ class AffirmationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedT
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-            override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                stx.toLedgerTransaction(serviceHub, false).verify()
+        try {
+            val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
+                override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                    stx.toLedgerTransaction(serviceHub, false).verify()
+                }
             }
+
+            val signedId = subFlow(signedTransactionFlow)
+
+            return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
+        } catch (e: FlowException) {
+            OutputClient(ourIdentity).sendExceptionToXceptor("", e.message ?: "")
+            throw e
         }
-
-        val signedId = subFlow(signedTransactionFlow)
-
-        return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
     }
 }
 

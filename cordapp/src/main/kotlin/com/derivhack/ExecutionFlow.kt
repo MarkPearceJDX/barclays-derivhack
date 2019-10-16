@@ -72,18 +72,26 @@ class ExecutionFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTra
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-            override fun checkTransaction(stx: SignedTransaction) {
-                val tx = stx.toLedgerTransaction(serviceHub, false)
-                tx.verify()
-                if (!CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
-                    throw FlowException("Execution state is invalid.")
+        var uniqueRef: String = ""
+
+        try {
+            val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
+                override fun checkTransaction(stx: SignedTransaction) {
+                    val tx = stx.toLedgerTransaction(serviceHub, false)
+                    tx.verify()
+                    if (!CdmValidators().validateExecution((tx.outputStates.first() as ExecutionState).execution()).all { it.isSuccess })
+                        throw FlowException("Execution state is invalid.")
+                }
             }
+
+            val signedId = subFlow(signedTransactionFlow)
+            signedId.verify(serviceHub, true)
+
+            subFlow(SendToXceptorFlow(ourIdentity, signedId))
+            return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
+        } catch (e: FlowException) {
+            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            throw e
         }
-
-        val signedId = subFlow(signedTransactionFlow)
-        signedId.verify(serviceHub, true)
-
-        return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId =  signedId.id))
     }
 }
