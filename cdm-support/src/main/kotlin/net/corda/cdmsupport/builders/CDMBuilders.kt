@@ -1,4 +1,5 @@
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.inject.Guice
 import com.regnosys.rosetta.common.hashing.*
 import com.regnosys.rosetta.common.serialisation.RosettaObjectMapper
 import com.rosetta.model.lib.RosettaModelObject
@@ -10,6 +11,7 @@ import com.rosetta.model.lib.records.DateImpl
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
 import net.corda.cdmsupport.eventparsing.serializeCdmObjectIntoJson
 import org.isda.cdm.*
+import org.isda.cdm.functions.Allocate
 import org.isda.cdm.metafields.*
 import org.isda.cdm.rosettakey.SerialisingHashFunction
 import java.io.File
@@ -27,9 +29,9 @@ fun main(args: Array<String>) {
 
 }
 
-open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/project/Derivhack/cdm-support/src/main/resources/UC2_Allocation_Trade_AT1.json") {
+open class CDMBuilders {
 
-    var allocationEvent = parseEventFromJson(readFileDirectlyAsText(allocationEventJsonFile))
+    var allocationEvent = parseEventFromJson(this.javaClass.getResource("UC2_Allocation_Trade_AT1.json").readText())
 
     val allocationExecutions = allocationEvent.primitive.allocation.flatMap { it.after.allocatedTrade.map { trade -> trade.execution } }
     val clientReferences = partyReferenceByRole(allocationExecutions[0].partyRole, PartyRoleEnum.CLIENT)
@@ -41,6 +43,7 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
     val affirmation = affirmationBuilder.build()
 
     fun executionAddParty(execution: Execution, parties: MutableSet<Party>): Execution {
+
         val executionBuilder = execution.toBuilder()
         parties.forEach {
             executionBuilder.addParty(ReferenceWithMetaParty.ReferenceWithMetaPartyBuilder()
@@ -79,6 +82,10 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
                 .setAccountName(buildFieldWithMetaString(accountName))
                 .setAccountNumber(buildFieldWithMetaString(accountNumber))
                 .build()
+    }
+
+    fun buildFieldWithMetaString(value: String): FieldWithMetaString {
+        return FieldWithMetaString.FieldWithMetaStringBuilder().setValue(value).build()
     }
 
     fun buildFieldWithMetaDate(date: Date): FieldWithMetaDate {
@@ -455,6 +462,14 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
 
     }
 
+    fun buildAllocationEvent(execution: Execution, allocationInstructions: String, previousEvent: Event): Event {
+        val instructions = buildAllocationInstruction(allocationInstructions)
+        val injector = Guice.createInjector(CordaRuntimeModule())
+        val allocateFun = injector.getInstance(Allocate::class.java);
+        val event = allocateFun.evaluate(execution, instructions, previousEvent)
+        return event
+    }
+
     fun buildParties(): MutableMap<String, Party> {
 
         val account1 = buildAccount("Client1_ACT#2", "Client1_ACT#2_BJKXFTGW4BFPY")
@@ -478,7 +493,6 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
                 buildPartyRole(PartyRoleEnum.BUYER, parties.getValue("Broker1")),
                 buildPartyRole(PartyRoleEnum.COUNTERPARTY, parties.getValue("Broker2")),
                 buildPartyRole(PartyRoleEnum.SELLER, parties.getValue("Broker2"))
-
         )
     }
 
@@ -525,8 +539,6 @@ open class CDMBuilders(val allocationEventJsonFile: String = "/home/nbonev/proje
 
         return PortfolioInstructions(date, party, security)
     }
-
-
 }
 
 
