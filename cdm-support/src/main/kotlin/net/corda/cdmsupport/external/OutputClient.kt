@@ -42,8 +42,11 @@ class OutputClient(val identity: Party) {
     }
 
     private fun getURL(): String {
-        when (identity.name.commonName) {
-            "" -> return "http://localhost/service/CordaAck"
+        when (identity.name.organisation) {
+            "Client1" -> return "https://xcderivhack-client1.azurewebsites.net/service/CordaAck"
+            "Broker1" -> return "https://xcderivhack-broker.azurewebsites.net/service/CordaAck"
+            "Broker2" -> return "https://xcderivhack-broker2.azurewebsites.net/service/CordaAck"
+            "Observery" -> return "https://xcderivhack-observer.azurewebsites.net/service/CordaAck"
             else -> return "http://localhost/service/CordaAck"
         }
     }
