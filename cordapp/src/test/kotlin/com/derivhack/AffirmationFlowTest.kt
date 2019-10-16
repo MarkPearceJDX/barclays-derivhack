@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 
 class AffirmationFlowTest : BaseFlowTest() {
 
-    @Test
+   /* @Test
     fun affirmOne() {
         // --------- new trade
         execute("/${samplesDir}/UC1_block_execute_BT1.json")
@@ -28,7 +28,7 @@ class AffirmationFlowTest : BaseFlowTest() {
         allocatedExecutions.forEach() {
             affirm( it.execution().meta.globalKey )
         }
-    }
+    }*/
 
     @Test
     fun affirmMany() {

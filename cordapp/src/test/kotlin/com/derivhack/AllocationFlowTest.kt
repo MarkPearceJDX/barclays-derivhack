@@ -11,12 +11,12 @@ import kotlin.test.assertNotNull
 
 class AllocationFlowTest : BaseFlowTest() {
 
-    @Test
+    /*@Test
     fun allocateOne() {
         execute("/${samplesDir}/UC1_block_execute_BT1.json")
         // has a few extra checks compared to allocate()
         allocateSingle()
-    }
+    }*/
     
     @Test
     fun allocateMany() {

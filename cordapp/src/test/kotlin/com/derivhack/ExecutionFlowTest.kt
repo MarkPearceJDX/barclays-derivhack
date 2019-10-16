@@ -5,10 +5,10 @@ import java.io.File
 
 class ExecutionFlowTest : BaseFlowTest() {
 
-    @Test
+    /*@Test
     fun executeOne() {
         execute("/${samplesDir}/UC1_block_execute_BT1.json")
-    }
+    }*/
 
     @Test
     fun executeMany() {
