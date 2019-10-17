@@ -16,7 +16,7 @@ class OutputClient(val identity: Party) {
     fun sendTextToFile(text: String) {
         val sdf = SimpleDateFormat("ddMMyyyyhhmmss")
         val currentDate = sdf.format(Date())
-        File("C:/Temp/${identity.name.organisation}_${currentDate}.txt").writeText(text)
+        File("C:/Temp/${identity.name.organisation}/${currentDate}.txt").writeText(text)
     }
 
     fun sendJsonToXceptor(json: String) {

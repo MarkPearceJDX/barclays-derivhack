@@ -372,6 +372,12 @@ open class CDMBuilders {
                 .build()
     }
 
+    fun buildPrimitiveEvent(transferPrimitive: TransferPrimitive): PrimitiveEvent {
+        return PrimitiveEvent.PrimitiveEventBuilder()
+                .addTransfer(transferPrimitive)
+                .build()
+    }
+
     fun buildExecutionPrimitive(afterExecution: Execution): ExecutionPrimitive {
         val builder = ExecutionState.ExecutionStateBuilder().setExecution(afterExecution)
         return ExecutionPrimitive.ExecutionPrimitiveBuilder()

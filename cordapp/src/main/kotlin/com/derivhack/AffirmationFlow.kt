@@ -96,7 +96,7 @@ class AffirmationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedT
 
             return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendExceptionToXceptor("", e.message ?: "")
+            OutputClient(ourIdentity).sendTextToFile(e.message ?: "")
             throw e
         }
     }

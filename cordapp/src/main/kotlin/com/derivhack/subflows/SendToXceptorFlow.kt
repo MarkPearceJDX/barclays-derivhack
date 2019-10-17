@@ -29,7 +29,7 @@ class SendToXceptorFlow(val identity: Party, val stx: SignedTransaction): FlowLo
     private fun sendJson(json: String) {
         val sdf = SimpleDateFormat("ddMMyyyyhhmmss")
         val currentDate = sdf.format(Date())
-        File("C:/Temp/${identity.name.organisation}_${currentDate}.json").writeText(json)
+        File("C:/Temp/${identity.name.organisation}/${currentDate}.json").writeText(json)
     }
 
 }

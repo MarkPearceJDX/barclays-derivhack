@@ -88,7 +88,7 @@ class AllocationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTr
 
             return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendTextToFile(": ${e.message}")
+            OutputClient(ourIdentity).sendTextToFile("${e.message}" ?: "")
             throw e
         }
     }
