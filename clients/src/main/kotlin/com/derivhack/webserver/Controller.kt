@@ -49,6 +49,34 @@ class Controller(rpc: NodeRPCConnection) {
         return "Transaction with id: ${tx.id} created"
     }
 
+    @PostMapping(value = ["/confirmation"])
+    private fun confirmation(@RequestParam executionRef: String): String {
+
+        lateinit var tx : FlowHandle<SignedTransaction>
+
+        if (checkExecutionIsAffirmed(executionRef, proxy)) {
+            tx = proxy.startFlowDynamic(ConfirmationFlow::class.java, executionRef)
+        }
+
+        return "Transaction with id: ${tx.id} created"
+    }
+
+    @PostMapping(value = ["/portfolio"])
+    private fun portfolio(@RequestBody portfolio: PortfolioBindingModel): String {
+
+        val tx = proxy.startFlowDynamic(PortfolioFlow::class.java, portfolio.transferRefs, portfolio.executionRefs, portfolio.pathToInstructions)
+
+        return "Transaction with id: ${tx.id} created"
+    }
+
+    @PostMapping(value = ["/transfer"])
+    private fun transfer(@RequestBody transferJson: String): String {
+
+        val tx = proxy.startFlowDynamic(TransferFlow::class.java, transferJson)
+
+        return "Transaction with id: ${tx.id} created"
+    }
+
     @GetMapping(value = ["/execution-states"])
     private fun executionStates(): List<ExecutionViewModel> {
         val allExecutionStatesAndRefs = proxy.vaultQueryBy<ExecutionState>().states

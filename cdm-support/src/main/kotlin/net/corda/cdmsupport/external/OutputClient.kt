@@ -3,13 +3,21 @@ package net.corda.cdmsupport.external
 import net.corda.core.identity.Party
 import java.io.BufferedReader
 import java.io.DataOutputStream
+import java.io.File
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.*
 
 class OutputClient(val identity: Party) {
 
+    fun sendTextToFile(text: String) {
+        val sdf = SimpleDateFormat("ddMMyyyyhhmmss")
+        val currentDate = sdf.format(Date())
+        File("C:/Temp/${identity.name.organisation}_${currentDate}.txt").writeText(text)
+    }
 
     fun sendJsonToXceptor(json: String) {
         sendMessageToXceptor(json)

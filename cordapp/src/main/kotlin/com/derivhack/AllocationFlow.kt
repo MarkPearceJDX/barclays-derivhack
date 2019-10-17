@@ -61,7 +61,7 @@ class AllocationFlow(val allocationJson: String) : FlowLogic<SignedTransaction>(
 
             return finalityTx
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            OutputClient(ourIdentity).sendTextToFile("${uniqueRef}: ${e.message}")
             throw e
         }
     }
@@ -84,9 +84,11 @@ class AllocationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTr
 
             val signedId = subFlow(signedTransactionFlow)
 
+            subFlow(SendToXceptorFlow(ourIdentity, signedId))
+
             return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendExceptionToXceptor("", e.message ?: "")
+            OutputClient(ourIdentity).sendTextToFile(": ${e.message}")
             throw e
         }
     }

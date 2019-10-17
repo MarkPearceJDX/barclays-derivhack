@@ -61,7 +61,7 @@ class ExecutionFlow(val executionJson: String) : FlowLogic<SignedTransaction>() 
 
             return finalityTx
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            OutputClient(ourIdentity).sendTextToFile("${uniqueRef}: ${e.message}")
             throw e
         }
     }
@@ -85,12 +85,12 @@ class ExecutionFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedTra
             }
 
             val signedId = subFlow(signedTransactionFlow)
-            signedId.verify(serviceHub, true)
 
             subFlow(SendToXceptorFlow(ourIdentity, signedId))
+
             return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            OutputClient(ourIdentity).sendTextToFile("${uniqueRef}: ${e.message}")
             throw e
         }
     }

@@ -39,6 +39,7 @@ class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>()
             val stateAndRef = statesAndRef.first { it.state.data.execution().meta.globalKey == executionRef }
 
             val state = stateAndRef.state.data
+            uniqueRef = state.execution().meta.globalKey
 
             val notary = serviceHub.networkMapCache.notaryIdentities.first()
             val participants = state.participants.map { net.corda.core.identity.Party(it.nameOrNull(), it.owningKey) }
@@ -71,7 +72,7 @@ class AffirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>()
 
             return finalityTx
         } catch (e: FlowException) {
-            OutputClient(ourIdentity).sendExceptionToXceptor(uniqueRef, e.message ?: "")
+            OutputClient(ourIdentity).sendTextToFile("${uniqueRef}: ${e.message}")
             throw e
         }
     }
@@ -90,6 +91,8 @@ class AffirmationFlowResponder(val flowSession: FlowSession) : FlowLogic<SignedT
             }
 
             val signedId = subFlow(signedTransactionFlow)
+
+            subFlow(SendToXceptorFlow(ourIdentity, signedId))
 
             return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
         } catch (e: FlowException) {

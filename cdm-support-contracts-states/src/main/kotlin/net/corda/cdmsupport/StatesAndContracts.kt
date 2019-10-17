@@ -36,6 +36,7 @@ class CDMEvent : Contract {
                 is Commands.Execution -> verifyExecution(tx)
                 is Commands.Affirmation -> verifyAffirmation(tx)
                 is Commands.Confirmation -> verifyConfirmation(tx)
+                is Commands.Transfer -> verifyTransfer(tx)
             }
         }
     }
@@ -70,6 +71,12 @@ class CDMEvent : Contract {
             "Confirmation requires two output states, where one is execution state." using (tx.outputStates.firstOrNull() { it is ExecutionState } != null)
             "Confirmation requires two output states, where one is confirmation state." using (tx.outputStates.firstOrNull() { it is ConfirmationState } != null)
             "Output confirmation state must reference the input execution state." using (verifyAffirmationStatesLineage(tx))
+        }
+    }
+
+    private fun verifyTransfer(tx: LedgerTransaction) {
+        requireThat {
+
         }
     }
 

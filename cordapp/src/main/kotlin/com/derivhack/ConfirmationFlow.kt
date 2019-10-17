@@ -2,9 +2,11 @@ package com.derivhack
 
 import CDMBuilders
 import co.paralleluniverse.fibers.Suspendable
+import com.derivhack.subflows.SendToXceptorFlow
 import net.corda.cdmsupport.CDMEvent
 import net.corda.cdmsupport.ValidationUnsuccessfull
 import net.corda.cdmsupport.eventparsing.serializeCdmObjectIntoJson
+import net.corda.cdmsupport.external.OutputClient
 import net.corda.cdmsupport.functions.confirmationBuilderFromExecution
 import net.corda.cdmsupport.states.ConfirmationState
 import net.corda.cdmsupport.states.ExecutionState
@@ -33,40 +35,49 @@ class ConfirmationFlow(val executionRef: String) : FlowLogic<SignedTransaction>(
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val statesAndRef = serviceHub.vaultService.queryBy<ExecutionState>().states
-        val stateAndRef = statesAndRef.first { it.state.data.execution().meta.globalKey == executionRef }
+        var uniqueRef: String = ""
 
-        val state = stateAndRef.state.data
+        try {
+            val statesAndRef = serviceHub.vaultService.queryBy<ExecutionState>().states
+            val stateAndRef = statesAndRef.first { it.state.data.execution().meta.globalKey == executionRef }
 
-        val notary = serviceHub.networkMapCache.notaryIdentities.first()
-        val participants = state.participants.map { net.corda.core.identity.Party(it.nameOrNull(), it.owningKey) }
+            val state = stateAndRef.state.data
+            uniqueRef = state.execution().meta.globalKey
 
-        val builder = TransactionBuilder(notary)
+            val notary = serviceHub.networkMapCache.notaryIdentities.first()
+            val participants = state.participants.map { net.corda.core.identity.Party(it.nameOrNull(), it.owningKey) }
 
-        val confirmation = confirmationBuilderFromExecution(state)
-        val confirmationState = ConfirmationState(serializeCdmObjectIntoJson(confirmation), participants)
-        val executionState = state.copy(workflowStatus = ConfirmationStatusEnum.CONFIRMED.name)
+            val builder = TransactionBuilder(notary)
 
-        builder.addInputState(stateAndRef)
-        builder.addCommand(CDMEvent.Commands.Confirmation(), participants.map { it.owningKey })
-        builder.addOutputState(confirmationState)
-        builder.addOutputState(executionState)
+            val confirmation = confirmationBuilderFromExecution(state)
+            val confirmationState = ConfirmationState(serializeCdmObjectIntoJson(confirmation), participants)
+            val executionState = state.copy(workflowStatus = ConfirmationStatusEnum.CONFIRMED.name)
 
-        builder.verify(serviceHub)
+            builder.addInputState(stateAndRef)
+            builder.addCommand(CDMEvent.Commands.Confirmation(), participants.map { it.owningKey })
+            builder.addOutputState(confirmationState)
+            builder.addOutputState(executionState)
 
-        val signedTransaction = serviceHub.signInitialTransaction(builder)
+            builder.verify(serviceHub)
 
-        val session = participants.minus(ourIdentity).map { initiateFlow(it) }
+            val signedTransaction = serviceHub.signInitialTransaction(builder)
 
-        val fullySignedTx = subFlow(CollectSignaturesFlow(signedTransaction, session, CollectSignaturesFlow.tracker()))
+            val session = participants.minus(ourIdentity).map { initiateFlow(it) }
 
-        val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
+            val fullySignedTx = subFlow(CollectSignaturesFlow(signedTransaction, session, CollectSignaturesFlow.tracker()))
 
-        val finalityTx = subFlow(FinalityFlow(fullySignedTx, session))
+            val regulator = serviceHub.identityService.partiesFromName("Observery", true).single()
 
-        subFlow(ObserverFlow(regulator, finalityTx))
+            val finalityTx = subFlow(FinalityFlow(fullySignedTx, session))
 
-        return finalityTx
+            subFlow(ObserverFlow(regulator, finalityTx))
+            subFlow(SendToXceptorFlow(ourIdentity, finalityTx))
+
+            return finalityTx
+        } catch (e: Exception) {
+            OutputClient(ourIdentity).sendTextToFile("${uniqueRef}: ${e.message}")
+            throw e
+        }
     }
 }
 
@@ -75,14 +86,21 @@ class ConfirmationFlowResponder(val flowSession: FlowSession): FlowLogic<SignedT
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
-            override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                stx.toLedgerTransaction(serviceHub, false).verify()
+        try {
+            val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
+                override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                    stx.toLedgerTransaction(serviceHub, false).verify()
+                }
             }
+
+            val signedId = subFlow(signedTransactionFlow)
+
+            subFlow(SendToXceptorFlow(ourIdentity, signedId))
+
+            return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
+        } catch (e: Exception) {
+            OutputClient(ourIdentity).sendTextToFile(": ${e.message}")
+            throw e
         }
-
-        val signedId = subFlow(signedTransactionFlow)
-
-        return subFlow(ReceiveFinalityFlow(otherSideSession = flowSession, expectedTxId = signedId.id))
     }
 }
