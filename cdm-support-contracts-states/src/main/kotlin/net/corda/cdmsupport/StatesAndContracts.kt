@@ -50,7 +50,7 @@ class CDMEvent : Contract {
     private fun verifyAllocation(tx: LedgerTransaction) {
         requireThat {
             "Allocation command requires exactly one input state." using (tx.inputStates.count() == 1)
-            "Allocation command must result in exactly 3 output states (subject to change in the future)." using (tx.outputStates.count() == 3)
+            //"Allocation command must result in exactly 3 output states (subject to change in the future)." using (tx.outputStates.count() == 3)
             "Closed state identifier does not match the input state identifier." using (verifyAllocationClosedState(tx))
             "Trade quantities of the newly allocated states does not match the original execution quantity." using (verifyAllocationQuantity(tx))
         }
@@ -85,7 +85,11 @@ class CDMEvent : Contract {
         val outputExecutions = tx.outputStates.map { (it as ExecutionState).execution() }
         val allocatedQuantity = outputExecutions.filter { it.closedState == null }.sumByDouble { it.quantity.amount.toDouble() }
 
-        return inputExecution.quantity.amount.toDouble() == allocatedQuantity
+        if (inputExecution.quantity.amount.toDouble() == allocatedQuantity) {
+            return true
+        } else {
+            return false
+        }
     }
 
     private fun verifyAllocationClosedState(tx: LedgerTransaction) : Boolean {

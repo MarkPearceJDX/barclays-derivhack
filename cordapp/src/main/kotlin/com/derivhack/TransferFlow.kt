@@ -4,6 +4,7 @@ import CDMBuilders
 import co.paralleluniverse.fibers.Suspendable
 import com.derivhack.subflows.SendToXceptorFlow
 import com.rosetta.model.lib.meta.MetaFieldsI
+import liquibase.changelog.ChangeSet
 import net.corda.cdmsupport.eventparsing.parseEventFromJson
 import net.corda.cdmsupport.eventparsing.serializeCdmObjectIntoJson
 import net.corda.cdmsupport.external.OutputClient
@@ -59,10 +60,6 @@ class TransferFlow(val jsonEvent: String) : FlowLogic<SignedTransaction>() {
         val statesAndRefToSettle = statesAndRef.filter { effectedExecutionRefs.contains(it.state.data.execution().meta.globalKey) }
         val statesToSettle = statesAndRefToSettle.map { it.state.data }
         val settledStates = statesToSettle.map { it.copy(workflowStatus = TransferStatusEnum.SETTLED.name) }
-
-        settledStates.forEach {
-            cdmTransactionBuilder.addOutputState(it)
-        }
 
         val signedTxByMe = serviceHub.signInitialTransaction(cdmTransactionBuilder)
         val tx = signedTxByMe.toLedgerTransaction(serviceHub, false)
